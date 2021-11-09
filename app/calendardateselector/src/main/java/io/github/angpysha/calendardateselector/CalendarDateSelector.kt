@@ -14,6 +14,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.children
 import io.github.angpysha.calendardateselector.Enums.ECalendarMode
 import io.github.angpysha.calendardateselector.Enums.EStartWeekType
@@ -28,7 +30,7 @@ import java.util.*
 class CalendarDateSelector @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyleAttribute: Int = -1
+    defStyleAttribute: Int = 0
 ) : LinearLayout(context, attrs, defStyleAttribute) {
     @RequiresApi(Build.VERSION_CODES.O)
     private var currentMonth: Int = LocalDate.now().month.value
@@ -69,9 +71,21 @@ class CalendarDateSelector @JvmOverloads constructor(
         currentSelectedDateRange = null
     }
 
+    var normalTextColor: Int = Color.BLACK
+
     init {
         context?.let {
+            attrs?.let {
+                val typedArray = context.obtainStyledAttributes(it, R.styleable.CalendarDateSelector, R.attr.calendarDateSelectorStyle,R.style.Widget_AppTheme_CalendarDateSelector)
+                //todo get value for attrs
+                val normalTextColorResource = typedArray.getResourceId(R.styleable.AppTheme_calendarDateSelectorStyle,
+                android.R.color.black)
+                val normalTextCOlor = ContextCompat.getColor(context,normalTextColorResource)
+                normalTextColor = normalTextCOlor
+                typedArray.recycle()
+            }
             inflate(context, R.layout.calendar_main, this)
+
             monthStr = findViewById(R.id.calendar_month_string)
 //            setupWeekBar()
             //          insertDatesIntoLayout()
@@ -84,8 +98,17 @@ class CalendarDateSelector @JvmOverloads constructor(
                     currentMonth -= 1
                 }
                 clearOldLayout()
-                insertDatesIntoLayout()
-                updateSelectionVisual()
+                if (calendarMode == ECalendarMode.Month) {
+                    insertDatesIntoLayout()
+                    updateSelectionVisual()
+                } else if (calendarMode == ECalendarMode.Year) {
+                    currentYear-=1
+                    monthStr.text = currentYear.toString()
+                    addMonthesLayout()
+                } else if (calendarMode == ECalendarMode.Years) {
+                    currentYear-=20
+                    addYearsLayout()
+                }
             }
 
             var nextButton = findViewById<Button>(R.id.calendar_next_but)
@@ -97,20 +120,84 @@ class CalendarDateSelector @JvmOverloads constructor(
                     currentMonth += 1
                 }
                 clearOldLayout()
-                insertDatesIntoLayout()
-                updateSelectionVisual()
+                if (calendarMode == ECalendarMode.Month) {
+                    insertDatesIntoLayout()
+                    updateSelectionVisual()
+                } else if (calendarMode == ECalendarMode.Year) {
+                    currentYear+=1
+                    monthStr.text = currentYear.toString()
+                    addMonthesLayout()
+                } else if (calendarMode == ECalendarMode.Years) {
+                    currentYear += 20
+                    addYearsLayout()
+                }
             }
 
             monthStr.setOnClickListener {
                 if (calendarMode == ECalendarMode.Month) {
+                    calendarMode = ECalendarMode.Year
                     clearOldLayout()
                     var weekBar = findViewById<LinearLayout>(R.id.calendar_view_week_bar)
                     weekBar.visibility = View.GONE
                     monthStr.text = currentYear.toString()
                     addMonthesLayout()
+                } else if (calendarMode == ECalendarMode.Year) {
+                    calendarMode = ECalendarMode.Years
+                    clearOldLayout()
+                    var weekBar = findViewById<LinearLayout>(R.id.calendar_view_week_bar)
+                    weekBar.visibility = View.GONE
+                    monthStr.text = currentYear.toString()
+                    addYearsLayout()
+                } else if (calendarMode == ECalendarMode.Years) {
+                    calendarMode = ECalendarMode.Month
+                    clearOldLayout()
+                    var weekBar = findViewById<LinearLayout>(R.id.calendar_view_week_bar)
+                    weekBar.visibility = View.VISIBLE
+                    insertDatesIntoLayout()
                 }
             }
         }
+    }
+
+
+    private fun addYearsLayout() {
+        var mod = currentYear % 20
+        var startYear = currentYear - mod
+        var endYear = startYear+20
+
+        monthStr.text = "${startYear}-${endYear-1}"
+        var lst = (startYear..endYear).toList()
+
+        var v = findViewById<LinearLayout>(R.id.calendar_container_main)
+        var linearLayout: LinearLayout = LinearLayout(context)
+        linearLayout.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        linearLayout.orientation = LinearLayout.VERTICAL
+        var layouts = emptyList<LinearLayout>().toMutableList()
+
+        var iter = 0
+
+        for (i in 0..3) {
+            var layout = LinearLayout(context)
+            layout.orientation = LinearLayout.HORIZONTAL
+            layout.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            layouts.add(layout)
+
+            for (j in 0..4) {
+                var height = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,30f,context.resources.displayMetrics).toInt()
+                var textView: TextView = TextView(context)
+                val lay_params = LinearLayout.LayoutParams(0, height)
+                lay_params.weight = 1f
+                textView.layoutParams = lay_params
+                textView.text = lst[iter].toString()
+                textView.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                iter+=1
+                layout.addView(textView)
+
+            }
+        }
+
+        layouts.forEach { linearLayout.addView(it) }
+        v.addView(linearLayout)
     }
 
     private fun addMonthesLayout() {
@@ -155,11 +242,6 @@ class CalendarDateSelector @JvmOverloads constructor(
         v.addView(linearLayout)
     }
 
-    override fun draw(canvas: Canvas?) {
-        super.draw(canvas)
-        //    setupWeekBar()
-//        insertDatesIntoLayout()
-    }
 
     private var _isLoaded: Boolean = false
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -182,20 +264,20 @@ class CalendarDateSelector @JvmOverloads constructor(
 
         if (startWeekType == EStartWeekType.Monday) {
             txtView1.text = toLocalizedDayWeek(DayOfWeek.MONDAY)
-            txtView1.setTextColor(Color.BLACK)
+            txtView1.setTextColor(normalTextColor)
 
             txtView2.text = toLocalizedDayWeek(DayOfWeek.TUESDAY)
-            txtView2.setTextColor(Color.BLACK)
+            txtView2.setTextColor(normalTextColor)
 
             txtView3.text = toLocalizedDayWeek(DayOfWeek.WEDNESDAY)
-            txtView3.setTextColor(Color.BLACK)
+            txtView3.setTextColor(normalTextColor)
 
 
             txtView4.text = toLocalizedDayWeek(DayOfWeek.THURSDAY)
-            txtView4.setTextColor(Color.BLACK)
+            txtView4.setTextColor(normalTextColor)
 
             txtView5.text = toLocalizedDayWeek(DayOfWeek.FRIDAY)
-            txtView5.setTextColor(Color.BLACK)
+            txtView5.setTextColor(normalTextColor)
 
 
             txtView6.text = toLocalizedDayWeek(DayOfWeek.SATURDAY)
@@ -206,20 +288,20 @@ class CalendarDateSelector @JvmOverloads constructor(
             txtView7.setTextColor(Color.RED)
         } else {
             txtView2.text = toLocalizedDayWeek(DayOfWeek.MONDAY)
-            txtView2.setTextColor(Color.BLACK)
+            txtView2.setTextColor(normalTextColor)
 
             txtView3.text = toLocalizedDayWeek(DayOfWeek.TUESDAY)
-            txtView3.setTextColor(Color.BLACK)
+            txtView3.setTextColor(normalTextColor)
 
             txtView4.text = toLocalizedDayWeek(DayOfWeek.WEDNESDAY)
-            txtView4.setTextColor(Color.BLACK)
+            txtView4.setTextColor(normalTextColor)
 
 
             txtView5.text = toLocalizedDayWeek(DayOfWeek.THURSDAY)
-            txtView5.setTextColor(Color.BLACK)
+            txtView5.setTextColor(normalTextColor)
 
             txtView6.text = toLocalizedDayWeek(DayOfWeek.FRIDAY)
-            txtView6.setTextColor(Color.BLACK)
+            txtView6.setTextColor(normalTextColor)
 
 
             txtView7.text = toLocalizedDayWeek(DayOfWeek.SATURDAY)
@@ -276,7 +358,7 @@ class CalendarDateSelector @JvmOverloads constructor(
             txt.layoutParams = item_lp
             txt.text = calendarMonthItem.day.toString()
             txt.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            txt.setTextColor(Color.BLACK)
+            txt.setTextColor(normalTextColor)
 
             txt.setOnClickListener {
                 if (calendarMonthItem.isSelectable) {
@@ -285,13 +367,9 @@ class CalendarDateSelector @JvmOverloads constructor(
                             clearPrevSingleSelction()
 
                         currentSelectedDate = calendarMonthItem
-//                        oldTxt?.let {
-//                            oldTxt?.setBackgroundColor(Color.TRANSPARENT)
-//                        }
 
 
                         txt?.setBackgroundColor(Color.CYAN)
-                        //  oldTxt = txt
                         onItemClicked?.invoke(SingleDateSelectedResult(calendarMonthItem))
                     } else {
                         val firstClick = currentSelectedDateRange == null
@@ -391,7 +469,6 @@ class CalendarDateSelector @JvmOverloads constructor(
                             txtView.setBackgroundColor(color)
                         }
                     }
-                    // var pos = toLayoutPoistiion()
 
                 }
             }

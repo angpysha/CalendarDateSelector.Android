@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.AppTheme.CalendarDateSelector" parent="">
+        <item name="textColor">@android:color/white</item>
+    </style>
+</resources>
